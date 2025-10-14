@@ -1,0 +1,59 @@
+diff --git a/kimi_coding_agent_v_6_1.py b/kimi_coding_agent_v_6_1.py
+index 1234abcd..5678ef09 100644
+--- a/kimi_coding_agent_v_6_1.py
++++ b/kimi_coding_agent_v_6_1.py
+@@ -15,6 +15,8 @@ import shutil
+ import asyncio
+ import time
+ 
++# ----------- universal routing -----------
++from packs import classify, get_pack
++# -----------------------------------------
++
+ # ----------------------------------------------------------------------------
+ # Context object passed to every tool
+ # ----------------------------------------------------------------------------
+@@ -1040,15 +1042,15 @@ def main():
+         raise SystemExit(f"Requirements file not found: {req_path}")
+     req = json.loads(req_path.read_text(encoding="utf-8"))
+ 
+-    if args.bootstrap:
+-        # Deterministic SPA write path (no LLM needed)
+-        bootstrap_spa(base_dir, req)
+-        lint_res = lint_and_fix_impl(base_dir, dry_run=args.dry_run)
+-        print(f"Lint-fix: {'OK' if lint_res.ok else 'FAIL'}")
+-        # Also run validation locally so user gets immediate signal
+-        compiled_ok = bool(compileall.compile_dir(str(base_dir), quiet=1, force=False, maxlevels=10))
+-        # run pytest if present
+-        code, out, err = _run_subprocess([sys.executable, "-m", "pytest", "-q"], cwd=base_dir, timeout=180)
+-        validation = ValidationResult(
+-            compiled_ok=compiled_ok,
+-            compile_errors=[],
+-            pytest_ok=(code == 0),
+-            pytest_returncode=code,
+-            pytest_stdout=out,
+-            pytest_stderr=err,
+-        )
+-        (base_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+-        (base_dir / "artifacts" / "validation.json").write_text(validation.model_dump_json(indent=2), encoding="utf-8")
+-        print("\n==== SUMMARY ====\n")
+-        print(f"Wrote project to: {base_dir}")
+-        print(f"Compile: {'OK' if compiled_ok else 'FAIL'}")
+-        print(f"Pytest:  {'OK' if code == 0 else f'FAIL (rc={code})'}")
+-        print("See artifacts/validation.json for details.")
++# --------- universal bootstrap ---------
++    pack_name = classify(req)
++    pack = get_pack(pack_name)
++    files = pack.plan_files(req)
++    if args.bootstrap:
++        write_many_impl(base_dir, FileMap(files=files), overwrite=True, dry_run=args.dry_run)
++        validation = pack.validate(AgentContext(base_dir, dry_run=args.dry_run))
++        record_validation_impl(base_dir, validation, dry_run=args.dry_run)
++        print("\n==== SUMMARY ====")
++        print("Project type :", pack_name)
++        print("Files written:", len(files))
++        print("See artifacts/validation.json for details.")
+         return
++# ---------------------------------------
+ 
+     # Otherwise, run the agent (Kimi)
