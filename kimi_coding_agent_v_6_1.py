@@ -37,7 +37,7 @@ import re
 import textwrap
 from typing import Literal
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 import shutil
 
 # Disable OpenAI tracing and other external services
@@ -45,6 +45,7 @@ os.environ["OPENAI_AGENTS_TRACING"] = "false"
 os.environ["OPENAI_AGENTS_DISABLE_TRACING"] = "true"
 
 # ---- OpenAI Agents SDK (configured for Kimi / Moonshot) ------------------
+AGENTS_AVAILABLE = True
 try:
     from agents import (
         Agent,
@@ -56,12 +57,33 @@ try:
         ModelSettings,
     )
     from agents.run_context import RunContextWrapper
-    from openai import AsyncOpenAI,RateLimitError
-except Exception as e:
-    raise RuntimeError(
-        "The OpenAI Agents SDK and openai client are required. "
-        "Install with: pip install openai-agents openai"
-    ) from e
+    from openai import AsyncOpenAI, RateLimitError
+except Exception:  # pragma: no cover - exercised via unit tests
+    AGENTS_AVAILABLE = False
+
+    class _MissingDependency:
+        def __call__(self, *args: Any, **kwargs: Any) -> Any:
+            raise RuntimeError(
+                "The OpenAI Agents SDK and openai client are required. "
+                "Install with: pip install openai-agents openai"
+            )
+
+    def function_tool(*d_args: Any, **d_kwargs: Any):  # type: ignore
+        def decorator(func):
+            return func
+
+        return decorator
+
+    Agent = Runner = ModelSettings = _MissingDependency()  # type: ignore
+    enable_verbose_stdout_logging = set_default_openai_client = _MissingDependency()  # type: ignore
+    set_default_openai_api = _MissingDependency()  # type: ignore
+    AsyncOpenAI = RateLimitError = object  # type: ignore
+
+    class RunContextWrapper:  # type: ignore
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise RuntimeError(
+                "The OpenAI Agents SDK is required to construct a RunContextWrapper."
+            )
 import asyncio 
 import time 
 
@@ -97,17 +119,83 @@ def _ensure_artifacts_dir(base: Path) -> Path:
 # Pydantic Models with OpenAI-compatible schemas
 # ----------------------------------------------------------------------------
 
+def _normalize_text_content(value: Any) -> str:
+    """Best-effort conversion of arbitrary JSON payloads into text content."""
+
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    if isinstance(value, list):
+        return "\n".join(str(item) for item in value)
+    if isinstance(value, dict):
+        # Common alternate shapes produced by LLMs
+        for key in ("text", "content", "value", "body"):
+            if key in value:
+                return _normalize_text_content(value[key])
+        if "lines" in value:
+            return "\n".join(str(line) for line in value["lines"])
+        if "chunks" in value:
+            return "\n".join(_normalize_text_content(chunk) for chunk in value["chunks"])
+        return json.dumps(value, indent=2)
+    # Fallback to repr for unexpected primitives (e.g. numbers, bool)
+    return str(value)
+
+
 class FileItem(BaseModel):
     """Represents a single file with path and content"""
+
     path: str = Field(..., description="Relative file path")
     content: str = Field(..., description="File content")
+
+    model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_input(cls, data: Any) -> Any:
+        if isinstance(data, FileItem):
+            return data
+        if isinstance(data, dict):
+            data = dict(data)
+            if "path" not in data:
+                raise ValueError("Each file requires a 'path' field")
+            content = data.get("content")
+            if content is None and "contents" in data:
+                content = data["contents"]
+            data["content"] = _normalize_text_content(content)
+            return data
+        raise TypeError(f"Unsupported file payload: {type(data)!r}")
 
 
 class FileMap(BaseModel):
     """Mapping of relative_path -> text_content in OpenAI-compatible format"""
+
     files: List[FileItem] = Field(..., description="List of files to create")
 
-    model_config = ConfigDict(extra='forbid')  # Explicitly forbid extra properties
+    model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_input(cls, data: Any) -> Any:
+        if isinstance(data, FileMap):
+            return data
+        if isinstance(data, dict):
+            if "files" in data:
+                return {
+                    "files": data["files"],
+                }
+            # Accept plain mapping of path -> content
+            return {
+                "files": [
+                    {"path": path, "content": content}
+                    for path, content in data.items()
+                ]
+            }
+        if isinstance(data, list):
+            return {"files": data}
+        raise TypeError(f"Unsupported file map payload: {type(data)!r}")
 
 
 class ValidationResult(BaseModel):
@@ -129,11 +217,7 @@ def build_file_map(files: dict[str, str]) -> FileMap:
     Convert a plain dict returned by the LLM into the strict FileMap schema.
     Any unexpected keys inside the items are silently ignored.
     """
-    clean_items = []
-    for k, v in files.items():
-        # Make sure we only keep the two fields our schema declares
-        clean_items.append(FileItem(path=k, content=v))
-    return FileMap(files=clean_items)
+    return FileMap(files=files)
 
 
 # ----------------------------------------------------------------------------
@@ -181,16 +265,23 @@ def create_directory_impl(base_dir: Path, rel_path: str, dry_run: bool = False) 
     return {"ok": True, "path": str(path), "created": True}
 
 
-def write_text_file_impl(base_dir: Path, rel_path: str, content: str, overwrite: bool = True, dry_run: bool = False) -> Dict[str, Any]:
+def write_text_file_impl(
+    base_dir: Path,
+    rel_path: str,
+    content: Any,
+    overwrite: bool = True,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
     path = _resolve_safe(base_dir, rel_path)
     if path.exists() and not overwrite:
         return {"ok": False, "error": "File exists and overwrite=False", "path": str(path)}
+    normalized_content = _normalize_text_content(content)
     if dry_run:
-        logging.info(f"[dry-run] Would write {len(content)} bytes to: {path}")
-        return {"ok": True, "path": str(path), "bytes": len(content), "dry_run": True}
+        logging.info(f"[dry-run] Would write {len(normalized_content)} bytes to: {path}")
+        return {"ok": True, "path": str(path), "bytes": len(normalized_content), "dry_run": True}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
-    return {"ok": True, "path": str(path), "bytes": len(content)}
+    path.write_text(normalized_content, encoding="utf-8")
+    return {"ok": True, "path": str(path), "bytes": len(normalized_content)}
 
 
 def read_requirements_impl(requirements_path: Optional[Path]) -> Dict[str, Any]:
@@ -205,15 +296,58 @@ def read_requirements_impl(requirements_path: Optional[Path]) -> Dict[str, Any]:
         return {"ok": False, "error": f"Failed to parse JSON: {e}", "path": str(requirements_path)}
 
 
+def read_text_file_impl(base_dir: Path, rel_path: str, max_bytes: Optional[int] = None) -> Dict[str, Any]:
+    path = _resolve_safe(base_dir, rel_path)
+    if not path.exists():
+        return {"ok": False, "error": "File not found", "path": str(path)}
+    data = path.read_bytes()
+    if max_bytes is not None and len(data) > max_bytes:
+        return {
+            "ok": False,
+            "error": f"File exceeds max_bytes ({len(data)} > {max_bytes})",
+            "path": str(path),
+        }
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return {
+            "ok": False,
+            "error": "File is not valid UTF-8",
+            "path": str(path),
+        }
+    return {"ok": True, "path": str(path), "content": text, "bytes": len(data)}
+
+
+def list_directory_impl(base_dir: Path, rel_path: str = ".") -> Dict[str, Any]:
+    path = _resolve_safe(base_dir, rel_path)
+    if not path.exists():
+        return {"ok": False, "error": "Directory not found", "path": str(path)}
+    if not path.is_dir():
+        return {"ok": False, "error": "Not a directory", "path": str(path)}
+    entries = []
+    for child in sorted(path.iterdir()):
+        info = {
+            "name": child.name,
+            "is_dir": child.is_dir(),
+            "is_file": child.is_file(),
+        }
+        entries.append(info)
+    return {"ok": True, "path": str(path), "entries": entries}
+
+
 def write_many_impl(base_dir: Path, files: FileMap, overwrite: bool = True, dry_run: bool = False) -> Dict[str, Any]:
     results = {}
+    overall_ok = True
     for file_item in files.files:
         try:
             res = write_text_file_impl(base_dir, file_item.path, file_item.content, overwrite, dry_run)
             results[file_item.path] = res
+            if not res.get("ok", False):
+                overall_ok = False
         except Exception as e:
             results[file_item.path] = {"ok": False, "error": str(e)}
-    return {"ok": True, "results": results}
+            overall_ok = False
+    return {"ok": overall_ok, "results": results}
 
 
 def py_compile_all_impl(base_dir: Path, dry_run: bool = False) -> Dict[str, Any]:
@@ -251,8 +385,15 @@ def create_directory(ctx: RunContextWrapper[AgentContext], rel_path: str) -> Dic
 
 
 @function_tool(description_override="Write text to a file (UTF-8). Creates parent folders if needed.")
-def write_text_file(ctx: RunContextWrapper[AgentContext], rel_path: str, content: str, overwrite: bool = True) -> Dict[str, Any]:
-    return write_text_file_impl(ctx.context.base_dir, rel_path, content, overwrite, ctx.context.dry_run)
+def write_text_file(
+    ctx: RunContextWrapper[AgentContext],
+    rel_path: str,
+    content: Any,
+    overwrite: bool = True,
+) -> Dict[str, Any]:
+    return write_text_file_impl(
+        ctx.context.base_dir, rel_path, content, overwrite, ctx.context.dry_run
+    )
 
 
 @function_tool(description_override="Read and return a JSON object from requirements_path or a provided path.")
@@ -261,13 +402,31 @@ def read_requirements(ctx: RunContextWrapper[AgentContext], rel_path: Optional[s
     return read_requirements_impl(req_path)
 
 
+@function_tool(description_override="Read a UTF-8 text file relative to base_dir.")
+def read_text_file(
+    ctx: RunContextWrapper[AgentContext],
+    rel_path: str,
+    max_bytes: Optional[int] = None,
+) -> Dict[str, Any]:
+    return read_text_file_impl(ctx.context.base_dir, rel_path, max_bytes)
+
+
+@function_tool(description_override="List directory entries relative to base_dir.")
+def list_directory(
+    ctx: RunContextWrapper[AgentContext],
+    rel_path: str = ".",
+) -> Dict[str, Any]:
+    return list_directory_impl(ctx.context.base_dir, rel_path)
+
+
 @function_tool(description_override="Create multiple files at once using structured input.")
 def write_many(
     ctx: RunContextWrapper[AgentContext],
-    files: FileMap,
+    files: Any,
     overwrite: bool = True,
 ) -> Dict[str, Any]:
-    return write_many_impl(ctx.context.base_dir, files, overwrite, ctx.context.dry_run)
+    file_map = FileMap.model_validate(files)
+    return write_many_impl(ctx.context.base_dir, file_map, overwrite, ctx.context.dry_run)
 
 
 @function_tool(description_override="Compile all Python files under base_dir to check syntax. Returns a report.")
@@ -855,6 +1014,11 @@ DEFAULT_MODEL = os.getenv("KIMI_MODEL") or os.getenv("MOONSHOT_MODEL") or "kimi-
 
 
 def build_agent(verbose: bool) -> Agent[AgentContext]:
+    if not AGENTS_AVAILABLE:
+        raise RuntimeError(
+            "The OpenAI Agents SDK and openai client are required to build the agent. "
+            "Install with: pip install openai-agents openai"
+        )
     if verbose:
         enable_verbose_stdout_logging()
 
@@ -873,6 +1037,7 @@ def build_agent(verbose: bool) -> Agent[AgentContext]:
     You have a helper:
         def build_file_map(files: dict[str, str]) -> FileMap: ...
     Always create files with `write_many(build_file_map(...))`. Do not print code except very short snippets.
+    Use `read_text_file` and `list_directory` to inspect the workspace instead of guessing.
 
     ## Validation Workflow (MANDATORY)
     1) Write files.
@@ -890,6 +1055,8 @@ def build_agent(verbose: bool) -> Agent[AgentContext]:
         create_directory,
         write_text_file,
         read_requirements,
+        read_text_file,
+        list_directory,
         write_many,
         py_compile_all,
         run_pytest,
