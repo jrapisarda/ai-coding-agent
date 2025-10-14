@@ -1,0 +1,194 @@
+{
+  "project": {
+    "name": "fantasy-football-sleeper-scout",
+    "version": "1.0.0",
+    "description": "AI-powered web scraper that analyzes fantasy football statistics to generate power rankings and identify sleepers",
+    "type": "data-analysis",
+    "complexity": "advanced"
+  },
+  "specifications": {
+    "data_sources": {
+      "primary": [
+        "ESPN Fantasy Football API",
+        "NFL.com official statistics",
+        "FantasyPros expert rankings",
+        "Yahoo Sports projections"
+      ],
+      "secondary": [
+        "Player news and injury reports",
+        "Weather conditions for games",
+        "Defensive matchup statistics",
+        "Red zone performance data"
+      ]
+    },
+    "scraping_requirements": {
+      "rate_limiting": "Respectful delays between requests (2-3 seconds)",
+      "error_handling": "Retry logic with exponential backoff",
+      "data_validation": "Cross-reference multiple sources for accuracy",
+      "format_handling": "Handle HTML, JSON APIs, and CSV exports"
+    },
+    "analysis_features": {
+      "power_calculation": {
+        "performance_metrics": [
+          "Points per game (last 4 weeks)",
+          "Consistency score (standard deviation)",
+          "Touchdown dependency",
+          "Usage rate (touches/targets)",
+          "Red zone opportunities"
+        ],
+        "projection_metrics": [
+          "Upcoming opponent defensive strength",
+          "Home/away splits",
+          "Weather impact assessment",
+          "Recent trend analysis",
+          "Injury status and practice participation"
+        ],
+        "sleeper_identification": [
+          "Underutilized players with high efficiency",
+          "Favorable upcoming schedule",
+          "Depth chart changes",
+          "Recent performance spikes",
+          "Expert consensus vs. actual performance gap"
+        ]
+      },
+      "position_specific_metrics": {
+        "QB": [
+          "Passing yards/attempt",
+          "Rushing upside",
+          "Interception rate",
+          "Sack avoidance",
+          "Red zone passing efficiency"
+        ],
+        "RB": [
+          "Yards after contact",
+          "Target share in passing game",
+          "Goal line carries",
+          "Snap percentage trend",
+          "Elusive rating"
+        ],
+        "WR": [
+          "Target separation",
+          "Catch rate",
+          "Yards after catch",
+          "Red zone targets",
+          "Route participation percentage"
+        ],
+        "TE": [
+          "Target share in red zone",
+          "Blocking vs. receiving snaps",
+          "Middle field usage",
+          "Third down conversion rate"
+        ]
+      }
+    },
+    "output_requirements": {
+      "csv_structure": {
+        "columns": [
+          "player_name",
+          "team",
+          "position",
+          "current_week_rank",
+          "power_score",
+          "performance_score",
+          "projection_score",
+          "sleeper_rating",
+          "last_4_week_avg",
+          "next_opponent",
+          "matchup_difficulty",
+          "expert_consensus_rank",
+          "value_gap",
+          "risk_level",
+          "recommendation"
+        ],
+        "formats": [
+          "Sorted by power_score descending",
+          "Top 25 players for requested position",
+          "Sleeper flag for players with sleeper_rating > 7.5",
+          "Color-coded risk assessment"
+        ]
+      }
+    }
+  },
+  "file_structure": {
+    "directories": [
+      "src/scrapers/",
+      "src/analyzers/",
+      "src/utils/",
+      "data/raw/",
+      "data/processed/",
+      "output/",
+      "config/",
+      "logs/"
+    ],
+    "files": {
+      "src/": ["main.py", "config.py", "__init__.py"],
+      "src/scrapers/": ["espn_scraper.py", "nfl_scraper.py", "fantasypros_scraper.py", "base_scraper.py"],
+      "src/analyzers/": ["power_calculator.py", "sleeper_detector.py", "matchup_analyzer.py", "trend_analyzer.py"],
+      "src/utils/": ["data_cleaner.py", "formatter.py", "logger.py", "rate_limiter.py"],
+      "config/": ["sources.json", "scoring_weights.json", "sleeper_criteria.json"],
+      "": ["requirements.txt", "README.md", "run_analysis.py"]
+    }
+  },
+  "dependencies": {
+    "scraping": [
+      "beautifulsoup4",
+      "requests",
+      "selenium",
+      "scrapy",
+      "playwright"
+    ],
+    "data_analysis": [
+      "pandas",
+      "numpy",
+      "scikit-learn",
+      "scipy"
+    ],
+    "utils": [
+      "python-dotenv",
+      "logging",
+      "asyncio",
+      "aiohttp"
+    ]
+  },
+  "configuration": {
+    "scoring_weights": {
+      "performance_score": 0.4,
+      "projection_score": 0.35,
+      "sleeper_potential": 0.25
+    },
+    "sleeper_criteria": {
+      "min_expert_rank_gap": 15,
+      "min_recent_trend": 1.2,
+      "max_ownership_percentage": 60,
+      "favorable_matchup_boost": 1.5
+    },
+  "execution_flow": {
+    "steps": [
+      "1. Accept position input (QB, RB, WR, TE)",
+      "2. Scrape current season statistics from multiple sources",
+      "3. Gather expert projections for upcoming week",
+      "4. Calculate performance metrics (last 4 weeks)",
+      "5. Analyze upcoming matchup factors",
+      "6. Compute power scores using weighted algorithm",
+      "7. Identify sleepers based on criteria thresholds",
+      "8. Generate top 25 ranked CSV output",
+      "9. Log analysis metadata and confidence scores"
+    ],
+    "input_validation": [
+      "Validate position input (QB, RB, WR, TE)",
+      "Verify data source availability",
+      "Check for recent data (within 24 hours)",
+      "Validate minimum player sample size"
+    ]
+  },
+  "output_example": {
+    "csv_preview": {
+      "headers": ["Rank", "Player", "Team", "Pos", "Power_Score", "Perf_Score", "Proj_Score", "Sleeper", "Matchup", "Risk", "Recommendation"],
+      "sample_rows": [
+        ["1", "Christian McCaffrey", "SF", "RB", "94.2", "96.1", "92.3", "No", "Favorable", "Low", "Must Start"],
+        ["15", "Jaylen Warren", "PIT", "RB", "78.5", "75.2", "81.8", "Yes", "Neutral", "Medium", "Strong Sleeper"],
+        ["25", "Tyjae Spears", "TEN", "RB", "72.1", "68.9", "75.3", "Yes", "Favorable", "High", "Deep Sleeper"]
+      ]
+    }
+  }
+}}
