@@ -10,7 +10,7 @@ import textwrap
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -51,21 +51,127 @@ class AgentContext:
     dry_run: bool = False  # if True, tools won't write, just log
 
 
+@dataclass
+class AgentConfig:
+    """Centralized configuration for agent behavior and safety."""
+
+    model: str
+    temperature: float = 0.2
+    max_turns: int = 1000
+    timeout_sec: int = 120
+    allowed_file_extensions: List[str] = field(default_factory=list)
+
+
+def _normalize_extensions(exts: Iterable[str]) -> List[str]:
+    normalized: List[str] = []
+    for ext in exts:
+        ext_clean = ext.lower().lstrip(".").strip()
+        if ext_clean and ext_clean not in normalized:
+            normalized.append(ext_clean)
+    return normalized
+
+
+DEFAULT_MODEL = os.getenv("KIMI_MODEL") or os.getenv("MOONSHOT_MODEL") or "kimi-k2-0905-preview"
+
+
+def _default_agent_config() -> AgentConfig:
+    return AgentConfig(model=DEFAULT_MODEL, allowed_file_extensions=[])
+
+
+_ACTIVE_AGENT_CONFIG: AgentConfig = _default_agent_config()
+
+
+def get_active_agent_config() -> AgentConfig:
+    return _ACTIVE_AGENT_CONFIG
+
+
+def set_active_agent_config(config: AgentConfig) -> None:
+    global _ACTIVE_AGENT_CONFIG
+    normalized_exts = _normalize_extensions(config.allowed_file_extensions)
+    _ACTIVE_AGENT_CONFIG = AgentConfig(
+        model=config.model,
+        temperature=config.temperature,
+        max_turns=config.max_turns,
+        timeout_sec=config.timeout_sec,
+        allowed_file_extensions=normalized_exts,
+    )
+
+
+def load_agent_config(config_path: Optional[Path]) -> AgentConfig:
+    """Load configuration from JSON. Falls back to defaults on error."""
+
+    if not config_path:
+        return _default_agent_config()
+
+    try:
+        if not config_path.exists():
+            logging.warning("Agent config not found at %s; using defaults", config_path)
+            return _default_agent_config()
+        raw = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logging.warning("Failed to read agent config at %s: %s", config_path, exc)
+        return _default_agent_config()
+
+    allowed_exts = raw.get("allowed_file_extensions", [])
+    if not isinstance(allowed_exts, list):
+        logging.warning("allowed_file_extensions must be a list; ignoring value")
+        allowed_exts = []
+
+    return AgentConfig(
+        model=str(raw.get("model", DEFAULT_MODEL)),
+        temperature=float(raw.get("temperature", 0.2)),
+        max_turns=int(raw.get("max_turns", 1000)),
+        timeout_sec=int(raw.get("timeout_sec", 120)),
+        allowed_file_extensions=[str(ext) for ext in allowed_exts],
+    )
+
+
 # ----------------------------------------------------------------------------
 # Utility: filesystem helpers
 # ----------------------------------------------------------------------------
 def _resolve_safe(base: Path, target: str | Path) -> Path:
-    base = base.resolve()
-    p = (base / target).resolve()
-    if not str(p).startswith(str(base)):
-        raise ValueError(f"Refusing to write outside base_dir: {p}")
-    return p
+    """Resolve a target path relative to base while enforcing safety checks."""
+
+    base_resolved = base.resolve()
+    target_path = Path(target)
+
+    if target_path.is_absolute():
+        raise ValueError(f"Absolute paths are not allowed: {target_path}")
+
+    candidate = (base_resolved / target_path).resolve()
+
+    try:
+        candidate.relative_to(base_resolved)
+    except ValueError as exc:
+        raise ValueError(f"Refusing to access path outside base_dir: {candidate}") from exc
+
+    # Disallow symlinks along the resolved path for security
+    for parent in [candidate] + list(candidate.parents):
+        if parent == base_resolved:
+            break
+        if parent.exists() and parent.is_symlink():
+            raise ValueError(f"Symlinks are not permitted in paths: {parent}")
+
+    return candidate
 
 
 def _ensure_artifacts_dir(base: Path) -> Path:
     ad = (base / "artifacts").resolve()
     ad.mkdir(parents=True, exist_ok=True)
     return ad
+
+
+def _enforce_allowed_extension(path: Path) -> None:
+    config = get_active_agent_config()
+    allowed = config.allowed_file_extensions
+    if not allowed:
+        return
+
+    suffix = path.suffix.lstrip(".").lower()
+    if not suffix:
+        raise ValueError(f"File without extension is not allowed: {path}")
+    if suffix not in allowed:
+        raise ValueError(f"File extension '.{suffix}' is not permitted. Allowed: {allowed}")
 
 
 # ----------------------------------------------------------------------------
@@ -186,6 +292,7 @@ def create_directory_impl(base_dir: Path, rel_path: str, dry_run: bool = False) 
 def write_text_file_impl(base_dir: Path, rel_path: str, content: str, overwrite: bool = True, dry_run: bool = False) -> Dict[str, Any]:
     """Core implementation for writing text files."""
     path = _resolve_safe(base_dir, rel_path)
+    _enforce_allowed_extension(path)
     if path.exists() and not overwrite:
         return {"ok": False, "error": "File exists and overwrite=False", "path": str(path)}
     if dry_run:
@@ -220,6 +327,69 @@ def write_many_impl(base_dir: Path, files: FileMap, overwrite: bool = True, dry_
         except Exception as e:
             results[file_item.path] = {"ok": False, "error": str(e)}
     return {"ok": True, "results": results}
+
+
+def list_files_impl(base_dir: Path, pattern: str = "**/*", include_dirs: bool = False) -> Dict[str, Any]:
+    """List files relative to base_dir using glob patterns."""
+
+    root = _resolve_safe(base_dir, ".")
+    matched: List[Dict[str, Any]] = []
+    for path in root.glob(pattern):
+        is_dir = path.is_dir()
+        if is_dir and not include_dirs:
+            continue
+        if path.is_symlink():
+            # Skip symlinks to maintain safety guarantees
+            continue
+        rel_path = path.relative_to(root).as_posix()
+        info: Dict[str, Any] = {"path": rel_path, "is_dir": is_dir}
+        if not is_dir:
+            try:
+                info["size"] = path.stat().st_size
+            except OSError:
+                info["size"] = None
+        matched.append(info)
+    return {"ok": True, "files": matched, "pattern": pattern}
+
+
+def file_exists_impl(base_dir: Path, rel_path: str) -> Dict[str, Any]:
+    """Check if a file or directory exists relative to base_dir."""
+
+    path = _resolve_safe(base_dir, rel_path)
+    exists = path.exists()
+    return {
+        "ok": True,
+        "exists": exists,
+        "path": str(path),
+        "is_file": path.is_file() if exists else False,
+        "is_dir": path.is_dir() if exists else False,
+    }
+
+
+def run_linter_impl(
+    base_dir: Path,
+    linter: str = "flake8",
+    args: Optional[List[str]] = None,
+    timeout_sec: int = 180,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """Run a linter command inside base_dir."""
+
+    if dry_run:
+        return {"ok": True, "linter": linter, "dry_run": True}
+
+    cmd = [linter]
+    if args:
+        cmd.extend(args)
+
+    code, out, err = _run_subprocess(cmd, cwd=base_dir, timeout=timeout_sec)
+    return {
+        "ok": code == 0,
+        "linter": linter,
+        "returncode": code,
+        "stdout": out,
+        "stderr": err,
+    }
 
 
 def py_compile_all_impl(base_dir: Path, dry_run: bool = False) -> Dict[str, Any]:
@@ -297,6 +467,20 @@ def write_many(
     return write_many_impl(ctx.context.base_dir, file_map, overwrite, ctx.context.dry_run)
 
 
+@function_tool(description_override="List files relative to base_dir using glob patterns.")
+def list_files(
+    ctx: RunContextWrapper[AgentContext],
+    pattern: str = "**/*",
+    include_dirs: bool = False,
+) -> Dict[str, Any]:
+    return list_files_impl(ctx.context.base_dir, pattern, include_dirs)
+
+
+@function_tool(description_override="Check whether a path exists relative to base_dir.")
+def file_exists(ctx: RunContextWrapper[AgentContext], rel_path: str) -> Dict[str, Any]:
+    return file_exists_impl(ctx.context.base_dir, rel_path)
+
+
 @function_tool(description_override="Compile all Python files under base_dir to check syntax. Returns a report.")
 def py_compile_all(ctx: RunContextWrapper[AgentContext]) -> Dict[str, Any]:
     return py_compile_all_impl(ctx.context.base_dir, ctx.context.dry_run)
@@ -309,6 +493,16 @@ def run_pytest(
     timeout_sec: int = 180,
 ) -> Dict[str, Any]:
     return run_pytest_impl(ctx.context.base_dir, args, timeout_sec, ctx.context.dry_run)
+
+
+@function_tool(description_override="Run a linter (e.g. flake8) inside base_dir and capture stdout/stderr.")
+def run_linter(
+    ctx: RunContextWrapper[AgentContext],
+    linter: str = "flake8",
+    args: Optional[List[str]] = None,
+    timeout_sec: int = 180,
+) -> Dict[str, Any]:
+    return run_linter_impl(ctx.context.base_dir, linter, args, timeout_sec, ctx.context.dry_run)
 
 
 @function_tool(description_override="Persist a JSON validation summary to artifacts/validation.json for auditing.")
@@ -467,12 +661,11 @@ def _configure_kimi_client() -> None:
 # ----------------------------------------------------------------------------
 # Agent & run logic
 # ----------------------------------------------------------------------------
-DEFAULT_MODEL = os.getenv("KIMI_MODEL") or os.getenv("MOONSHOT_MODEL") or "kimi-k2-0905-preview"
-
-
-def build_agent(verbose: bool) -> Agent[AgentContext]:
+def build_agent(verbose: bool, config: Optional[AgentConfig] = None) -> Agent[AgentContext]:
     if verbose:
         enable_verbose_stdout_logging()
+
+    active_config = config or get_active_agent_config()
 
     instructions = """
     You are a coding agent that SCAFFOLDS REAL PROJECTS ON DISK using provided tools only.
@@ -528,8 +721,11 @@ def build_agent(verbose: bool) -> Agent[AgentContext]:
         write_text_file,
         read_requirements,
         write_many,
+        list_files,
+        file_exists,
         py_compile_all,         # NEW: host-side compile
         run_pytest,             # NEW: host-side pytest
+        run_linter,             # NEW: host-side linting
         record_validation,      # NEW: persist results
         web_search,             # NEW: lightweight docs lookup
     ]
@@ -538,8 +734,8 @@ def build_agent(verbose: bool) -> Agent[AgentContext]:
         name="Kimi Coding Agent",
         instructions=instructions,
         tools=tools,
-        model=DEFAULT_MODEL,
-        model_settings=ModelSettings(temperature=0.2),
+        model=active_config.model,
+        model_settings=ModelSettings(temperature=active_config.temperature),
     )
     return agent
 
@@ -602,8 +798,9 @@ def _derive_research_queries(prompt: str, requirements_data: Optional[Dict[str, 
 
     queries: List[str] = ["OpenAI Agents SDK latest documentation", "OpenAI function_tool best practices"]
 
-    if DEFAULT_MODEL:
-        queries.append(f"{DEFAULT_MODEL} API updates")
+    active_model = get_active_agent_config().model
+    if active_model:
+        queries.append(f"{active_model} API updates")
 
     if requirements_data:
         keywords = _extract_keywords(requirements_data)
@@ -685,10 +882,12 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Verbose agent logs")
     parser.add_argument("--prompt", type=str, default="Scaffold the project described in the requirements.json.")
     parser.add_argument("--skip-research", action="store_true", help="Skip automatic documentation web search")
+    parser.add_argument("--config", type=str, default=None, help="Path to agent configuration JSON")
     args = parser.parse_args()
 
     base_dir = Path(args.base_dir).expanduser().resolve()
     req_path = Path(args.requirements).expanduser().resolve() if args.requirements else None
+    config_path = Path(args.config).expanduser().resolve() if args.config else None
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 
@@ -700,6 +899,9 @@ def main():
         print(f"Bootstrapped project at: {base_dir}")
         return
 
+    agent_config = load_agent_config(config_path)
+    set_active_agent_config(agent_config)
+
     research_summary = ""
     if not args.skip_research:
         research_summary, _ = perform_pre_run_research(base_dir, args.prompt, req_path, dry_run=args.dry_run)
@@ -710,7 +912,7 @@ def main():
     _configure_kimi_client()
 
     # Build agent & context
-    agent = build_agent(verbose=args.verbose)
+    agent = build_agent(verbose=args.verbose, config=agent_config)
     ctx = AgentContext(base_dir=base_dir, requirements_path=req_path, dry_run=args.dry_run)
 
     prompt_input = args.prompt
@@ -722,7 +924,7 @@ def main():
         agent,
         input=prompt_input,
         context=ctx,
-        max_turns=1000,
+        max_turns=agent_config.max_turns,
     )
 
     print("\n==== FINAL OUTPUT ====\n")
