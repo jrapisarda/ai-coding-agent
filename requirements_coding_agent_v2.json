@@ -1,0 +1,236 @@
+{
+  "project": {
+    "name": "multi-agent-codegen",
+    "version": "1.0.0",
+    "description": "Local-first, CLI-driven multi-agent orchestration system for converting requirements documents into runnable Python code, tests, and artifacts",
+    "type": "microservices-architecture",
+    "complexity": "advanced"
+  },
+  "specifications": {
+    "architecture": {
+      "pattern": "microservices",
+      "services": [
+        "cli-service",
+        "requirements-agent",
+        "coding-agent",
+        "testing-agent",
+        "documentation-agent",
+        "orchestration-service",
+        "persistence-service"
+      ],
+      "deployment": "local-docker-and-aws-ecs"
+    },
+    "technical_requirements": {
+      "backend": [
+        "Python 3.11-3.13",
+        "OpenAI Agents SDK",
+        "SQLite",
+        "pytest",
+        "celery",
+        "docker",
+        "sqlalchemy",
+        "fastapi"
+      ],
+      "frontend": [],
+      "ai_ml": [
+        "OpenAI GPT-4",
+        "Natural language processing",
+        "Code generation models",
+        "Machine learning for test generation"
+      ],
+      "infrastructure": [
+        "Docker",
+        "AWS ECS",
+        "S3",
+        "CloudFront"
+      ]
+    },
+    "compliance_requirements": {
+      "data_privacy": [
+        "GDPR",
+        "CCPA"
+      ],
+      "content_moderation": [
+        "human-in-the-loop",
+        "approval-workflows"
+      ],
+      "rate_limiting": [
+        "OpenAI rate limits",
+        "1 req/sec default",
+        "robots.txt compliance"
+      ],
+      "audit_trails": [
+        "SQLite logs",
+        "7-year retention",
+        "immutable logs"
+      ]
+    },
+    "integration_requirements": {
+      "social_media": [],
+      "email_providers": [],
+      "search_apis": [],
+      "translation_apis": []
+    }
+  },
+  "feature_requirements": {
+    "core_features": [
+      "Multi-agent orchestration with sequential handoffs",
+      "Requirements document parsing (MD/TXT/JSON)",
+      "Python code generation",
+      "Test suite generation with pytest",
+      "Local sandboxed code execution",
+      "CLI interface with init, run, resume, rollback, package commands",
+      "SQLite persistence for run metadata and artifacts",
+      "Snapshot and rollback mechanisms",
+      "ZIP packaging of deliverables",
+      "Error containment and retry logic"
+    ],
+    "ai_features": [
+      "AI-powered requirements analysis using OpenAI",
+      "AI-assisted code generation",
+      "Machine learning for test case generation",
+      "Natural language processing for spec extraction"
+    ],
+    "data_management_features": [
+      "SQLite for local data persistence",
+      "Immutable audit trails",
+      "Artifact storage and versioning",
+      "Provenance tracking"
+    ]
+  },
+  "file_structure": {
+    "directories": [
+      "services/cli-service/",
+      "services/requirements-agent/",
+      "services/coding-agent/",
+      "services/testing-agent/",
+      "services/documentation-agent/",
+      "services/orchestration-service/",
+      "services/persistence-service/",
+      "docs/",
+      "config/"
+    ],
+    "files": {
+      "services/cli-service/": [
+        "main.py",
+        "commands.py",
+        "models.py"
+      ],
+      "services/requirements-agent/": [
+        "main.py",
+        "parser.py",
+        "models.py"
+      ],
+      "services/coding-agent/": [
+        "main.py",
+        "generator.py",
+        "sandbox.py"
+      ],
+      "services/testing-agent/": [
+        "main.py",
+        "test_gen.py",
+        "runner.py"
+      ],
+      "services/documentation-agent/": [
+        "main.py",
+        "doc_gen.py",
+        "templates.py"
+      ],
+      "services/orchestration-service/": [
+        "main.py",
+        "orchestrator.py",
+        "snapshots.py"
+      ],
+      "services/persistence-service/": [
+        "main.py",
+        "database.py",
+        "models.py"
+      ]
+    }
+  },
+  "dependencies": {
+    "python_backend": [
+      "openai>=1.0.0",
+      "pytest>=7.0.0",
+      "celery>=5.3.0",
+      "docker>=6.0.0",
+      "sqlalchemy>=2.0.0",
+      "fastapi>=0.104.0"
+    ],
+    "javascript_frontend": [],
+    "devops": [
+      "docker",
+      "terraform",
+      "github-actions"
+    ]
+  },
+  "configuration": {
+    "service_configs": {
+      "cli_service": {
+        "timeout": 30,
+        "log_level": "INFO"
+      },
+      "requirements_agent": {
+        "openai_model": "gpt-4",
+        "max_tokens": 1000
+      },
+      "coding_agent": {
+        "openai_model": "gpt-4",
+        "max_tokens": 2000
+      },
+      "testing_agent": {
+        "pytest_timeout": 60
+      },
+      "orchestration_service": {
+        "snapshot_interval": "per_agent_step"
+      }
+    },
+    "feature_flags": {
+      "ai_generation": true,
+      "sandbox_execution": true,
+      "snapshots_enabled": true,
+      "error_retries": true,
+      "human_review_required": false
+    },
+    "rate_limits": {
+      "openai_requests_per_minute": 60,
+      "local_execution_timeout": 300
+    }
+  },
+  "execution_flow": {
+    "development_setup": [
+      "Clone repository and install Python dependencies",
+      "Setup SQLite database",
+      "Configure OpenAI API key",
+      "Run initial tests"
+    ],
+    "deployment_workflow": [
+      "Build Docker images for services",
+      "Run unit and integration tests",
+      "Deploy to local environment",
+      "Deploy to cloud if needed"
+    ],
+    "user_workflows": [
+      "Requirements input → analysis → code generation → testing → documentation → packaging",
+      "Snapshot creation at each agent step",
+      "Rollback to previous snapshots on failure"
+    ]
+  },
+  "compliance_security": {
+    "data_protection": {
+      "encryption_at_rest": false,
+      "encryption_in_transit": true,
+      "pii_handling": "minimal logging"
+    },
+    "access_control": {
+      "rbac_enabled": false,
+      "api_rate_limiting": true,
+      "audit_logging": true
+    },
+    "monitoring": {
+      "health_checks": true,
+      "performance_metrics": true,
+      "error_tracking": true
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "compiled_ok": true,
+  "compile_errors": [],
+  "pytest_ok": true,
+  "pytest_returncode": 0,
+  "pytest_stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.10.0, pytest-7.4.3, pluggy-1.0\nrootdir: C:\\venvs\\git\\AI\\deepseekCodeReviewer\\website\\tests\\analysis\\codingagent\\ai-coding-agent\\test_codex_updates_v1\nplugins: anyio-4.11.0, asyncio-0.21.1\nasyncio: mode=strict\ncollected 5 items\n\ntest_validation.py .....                                                 [100%]\n\n============================== 5 passed in 0.02s ==============================",
+  "pytest_stderr": ""
+}
