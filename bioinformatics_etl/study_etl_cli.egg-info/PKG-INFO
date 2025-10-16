@@ -1,0 +1,98 @@
+Metadata-Version: 2.4
+Name: study-etl-cli
+Version: 1.0.0
+Summary: A CLI tool for ETL study data ingestion
+Author: Study ETL Team
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Healthcare Industry
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: click>=8.0.0
+Requires-Dist: pandas>=1.5.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: jsonschema>=4.0.0
+Requires-Dist: python-dateutil>=2.8.0
+Requires-Dist: coloredlogs>=15.0
+Requires-Dist: pytest>=7.0.0
+Requires-Dist: pytest-cov>=4.0.0
+Requires-Dist: black>=22.0.0
+Requires-Dist: flake8>=5.0.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Study ETL CLI Tool
+
+A robust command-line interface for ETL (Extract, Transform, Load) operations on study data ingestion.
+
+## Features
+
+- **Extract**: Support for CSV, JSON, and Excel file formats
+- **Transform**: Data validation, cleaning, and transformation pipelines
+- **Load**: Output to multiple formats with schema validation
+- **Validation**: Comprehensive data quality checks
+- **Logging**: Detailed logging with colored output
+- **Configuration**: YAML-based configuration files
+- **Error Handling**: Robust error handling and reporting
+
+## Installation
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+## Quick Start
+
+```bash
+# Basic ETL operation
+study-etl process input.csv output.json --config config.yaml
+
+# Validate data only
+study-etl validate input.csv --schema schema.json
+
+# Generate sample configuration
+study-etl init-config
+```
+
+## Configuration
+
+The tool uses YAML configuration files to define:
+- Data validation rules
+- Transformation pipelines
+- Output formats
+- Logging settings
+
+## Testing
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=study_etl
+
+# Run specific test
+pytest tests/test_validator.py -v
+```
+
+## Development
+
+```bash
+# Format code
+black study_etl/
+
+# Lint code
+flake8 study_etl/
+```

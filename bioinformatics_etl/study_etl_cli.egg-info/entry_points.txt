@@ -1,0 +1,2 @@
+[console_scripts]
+study-etl = study_etl.cli:main

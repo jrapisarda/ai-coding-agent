@@ -1,0 +1,32 @@
+# Study ETL Configuration File
+etl:
+  input:
+    format: csv
+    encoding: utf-8
+    delimiter: ","
+    header: true
+  
+  validation:
+    enabled: true
+    required_columns:
+      - "study_id"
+      - "patient_id"
+      - "visit_date"
+    data_types:
+      visit_date: "date"
+      age: "integer"
+  
+  transform:
+    remove_duplicates: true
+    missing_values:
+      drop_rows: false
+    cleaning:
+      strip_strings: true
+  
+  output:
+    format: csv
+    encoding: utf-8
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

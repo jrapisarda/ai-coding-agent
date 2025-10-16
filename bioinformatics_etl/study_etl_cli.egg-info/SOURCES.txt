@@ -1,0 +1,17 @@
+README.md
+setup.py
+study_etl/__init__.py
+study_etl/cli.py
+study_etl/config.py
+study_etl/etl.py
+study_etl/utils.py
+study_etl/validator.py
+study_etl_cli.egg-info/PKG-INFO
+study_etl_cli.egg-info/SOURCES.txt
+study_etl_cli.egg-info/dependency_links.txt
+study_etl_cli.egg-info/entry_points.txt
+study_etl_cli.egg-info/requires.txt
+study_etl_cli.egg-info/top_level.txt
+tests/__init__.py
+tests/test_etl.py
+tests/test_validator.py
