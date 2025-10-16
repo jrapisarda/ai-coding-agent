@@ -1,0 +1,27 @@
+[celery]
+broker_url = "redis://localhost:6379/1"
+result_backend = "redis://localhost:6379/2"
+task_serializer = "json"
+result_serializer = "json"
+accept_content = ["json"]
+timezone = "UTC"
+enable_utc = true
+
+task_routes = {
+    "content.*": {"queue": "content"},
+    "email.*": {"queue": "email"},
+    "social.*": {"queue": "social"},
+    "prospect.*": {"queue": "prospect"},
+    "snapshot.*": {"queue": "snapshot"},
+}
+
+task_annotations = {
+    "*": {"rate_limit": "10/m"},
+    "content.generate": {"rate_limit": "5/m"},
+    "email.send_campaign": {"rate_limit": "2/m"},
+    "prospect.discover": {"rate_limit": "3/m"},
+}
+
+worker_prefetch_multiplier = 1
+task_acks_late = true
+worker_max_tasks_per_child = 1000

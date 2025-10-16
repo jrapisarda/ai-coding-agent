@@ -1,0 +1,509 @@
+{
+  "project": {
+    "name": "chopan-ai-outreach-assistant",
+    "version": "1.0.0",
+    "description": "Microservices outreach and storytelling assistant (content, social, email, prospect discovery)",
+    "type": "microservices",
+    "complexity": "advanced"
+  },
+  "specifications": {
+    "architecture": {
+      "pattern": "microservices-ecs-fargate",
+      "components": [
+        "api-gateway",
+        "content-service",
+        "social-service",
+        "email-service",
+        "prospect-discovery-service",
+        "worker-service",
+        "frontend"
+      ],
+      "deployment": "aws-ecs-fargate",
+      "communication": "rest+webhooks+redis-queues"
+    },
+    "technical_requirements": {
+      "core_platform": [
+        "Python 3.11-3.13",
+        "FastAPI 0.119+",
+        "SQLAlchemy 2.0.x",
+        "Celery 5.5.x",
+        "Redis 7.4+",
+        "PostgreSQL 17",
+        "S3",
+        "OpenAI Responses API",
+        "OpenAI Agents SDK",
+        "Next.js 15 (React 19)"
+      ],
+      "development_tools": [
+        "docker-compose",
+        "GitHub Actions",
+        "Terraform or AWS CDK",
+        "uv for package management",
+        "pytest 8.4.2+",
+        "python-dotenv 1.1.x",
+        "SQLite 3.x"
+      ],
+      "execution_environment": [
+        "ECS Fargate",
+        "RDS PostgreSQL Multi-AZ",
+        "ElastiCache Redis",
+        "S3 Object Versioning",
+        "CloudFront",
+        "ALB"
+      ]
+    },
+    "functional_requirements": {
+      "core_features": [
+        "Content drafting, translation, review, scheduling",
+        "Email campaigns with suppression and webhooks",
+        "Social posting and engagement metrics",
+        "Prospect discovery, ML scoring, provenance",
+        "Human-in-the-loop approval gates",
+        "Rate limiting and robots.txt compliance",
+        "Snapshot and rollback for artifacts",
+        "Analytics dashboards"
+      ],
+      "cli_operations": [
+        "chopan snapshot create",
+        "chopan snapshot restore --to <id>",
+        "chopan export-openapi",
+        "chopan seeds --prospects"
+      ],
+      "agent_capabilities": {
+        "requirements_analysis": [
+          "Prospect web research",
+          "Feature extraction (NER, TF-IDF, embeddings)",
+          "Scoring and thresholding",
+          "Provenance capture to S3",
+          "Robots.txt compliance checks"
+        ],
+        "coding_agent": [
+          "Content generation via OpenAI",
+          "Deterministic template fills",
+          "Urdu/English translation",
+          "Moderation pre-checks",
+          "Scheduling artifact creation"
+        ],
+        "testing_agent": [
+          "Retry/backoff simulation",
+          "ESP webhook ingestion tests",
+          "Rate limit and circuit breaker tests",
+          "Data validation on ingestion"
+        ],
+        "documentation_agent": [
+          "Audit trail manifests",
+          "OpenAPI 3.x specs",
+          "Snapshot/rollback runbooks",
+          "Compliance policy references"
+        ]
+      }
+    },
+    "non_functional_requirements": {
+      "performance": [
+        ">=50 concurrent users (target 500)",
+        "~100 posts/day",
+        "~50 email campaigns/month",
+        "~1000 prospects/month",
+        "Crawler default 1 req/sec"
+      ],
+      "reliability": [
+        "RDS Multi-AZ",
+        "Queue-based retries with backoff",
+        "Circuit breakers and fallbacks",
+        "Immutable S3 snapshots",
+        "Blue/green or rolling deploys"
+      ],
+      "security": [
+        "RBAC and audit logging",
+        "7-year donor data retention",
+        "S3 Object Versioning/Lifecycle",
+        "Secrets via AWS KMS/Secrets Manager",
+        "PII encryption in transit/at rest"
+      ],
+      "usability": [
+        "Next.js dashboard with RSC",
+        "Reviewer workflows and SLAs",
+        "Analytics and prospect pipelines",
+        "Actionable error messages"
+      ]
+    }
+  },
+  "development_plan": {
+    "phases": [
+      {
+        "name": "Phase 1: MVP",
+        "duration": "5 weeks",
+        "components": [
+          "Infra setup (ECS/RDS/Redis/S3)",
+          "API Gateway + Content + Email + Social",
+          "Prospect discovery service",
+          "Dashboard (core flows)"
+        ]
+      },
+      {
+        "name": "Phase 2: Enhancements",
+        "duration": "6 weeks",
+        "components": [
+          "Advanced ML scoring",
+          "Performance optimization",
+          "Additional languages (AR/FR)",
+          "Enhanced analytics"
+        ]
+      },
+      {
+        "name": "Phase 3: Advanced",
+        "duration": "3 months",
+        "components": [
+          "Predictive analytics",
+          "Advanced A/B testing",
+          "Grant DB integrations",
+          "Multi-tenant architecture"
+        ]
+      }
+    ],
+    "milestones": [
+      "Week 1: Infra and basic services",
+      "Week 3: Content + translation + moderation",
+      "Week 4: Email + social flows",
+      "Week 5: Prospect discovery + dashboard",
+      "Week 5: Compliance audit and launch"
+    ]
+  },
+  "file_structure": {
+    "directories": [
+      "services/api_gateway/",
+      "services/content/",
+      "services/social/",
+      "services/email/",
+      "services/prospect/",
+      "services/worker/",
+      "frontend/",
+      "infra/",
+      "scripts/",
+      "ops/runbooks/",
+      "tests/",
+      "config/",
+      "docs/",
+      "snapshots/"
+    ],
+    "files": {
+      "services/api_gateway/": [
+        "main.py",
+        "routes.py",
+        "auth.py",
+        "rate_limiter.py",
+        "models.py"
+      ],
+      "services/content/": [
+        "main.py",
+        "openai_client.py",
+        "templates/",
+        "moderation.py",
+        "db.py"
+      ],
+      "services/social/": [
+        "main.py",
+        "meta_client.py",
+        "linkedin_client.py",
+        "scheduler.py",
+        "db.py"
+      ],
+      "services/email/": [
+        "main.py",
+        "sendgrid_client.py",
+        "mailgun_client.py",
+        "webhooks.py",
+        "db.py"
+      ],
+      "services/prospect/": [
+        "main.py",
+        "cse_client.py",
+        "robots.py",
+        "snapshot_s3.py",
+        "features.py",
+        "scoring.py",
+        "db.py"
+      ],
+      "services/worker/": [
+        "celery_app.py",
+        "tasks.py",
+        "queues.py"
+      ],
+      "frontend/": [
+        "next.config.js",
+        "app/",
+        "components/",
+        "pages/",
+        "styles/"
+      ],
+      "infra/": [
+        "terraform/",
+        "cdk/",
+        "github-actions/",
+        "docker/"
+      ],
+      "scripts/": [
+        "snapshot_create.py",
+        "snapshot_restore.py",
+        "db_migrate.py"
+      ],
+      "ops/runbooks/": [
+        "incident_response.md",
+        "rollback.md",
+        "rate_limit_playbook.md"
+      ],
+      "config/": [
+        "default_config.toml",
+        "openapi.yaml",
+        "celery.toml"
+      ],
+      "tests/": [
+        "api/",
+        "content/",
+        "email/",
+        "social/",
+        "prospect/",
+        "worker/"
+      ],
+      "docs/": [
+        "architecture.md",
+        "adr/",
+        "compliance.md"
+      ],
+      "": [
+        "pyproject.toml",
+        "requirements.txt",
+        "docker-compose.yml",
+        "README.md",
+        ".env.example"
+      ]
+    }
+  },
+  "dependencies": {
+    "core": [
+      "fastapi>=0.119.0",
+      "uvicorn>=0.30.0",
+      "sqlalchemy>=2.0.36",
+      "psycopg[binary]>=3.2.0",
+      "redis>=5.0.0",
+      "celery>=5.5.0",
+      "openai>=2.3.0",
+      "openai-agents>=0.3.0",
+      "python-dotenv>=1.1.1",
+      "pydantic>=2.11.0",
+      "httpx>=0.27.0",
+      "boto3>=1.34.0",
+      "spacy>=3.8.0",
+      "scikit-learn>=1.7.0",
+      "sentence-transformers>=5.1.0"
+    ],
+    "execution": [
+      "uv>=0.1.0",
+      "pytest>=8.4.2",
+      "pytest-asyncio>=0.23.0",
+      "pytest-cov>=4.1.0",
+      "alembic>=1.13.0",
+      "virtualenv>=20.0.0"
+    ],
+    "utils": [
+      "requests>=2.31.0",
+      "pyyaml>=6.0.0",
+      "tenacity>=8.2.0",
+      "sentry-sdk>=2.0.0",
+      "toml>=0.10.0",
+      "checksumdir>=1.2.0"
+    ],
+    "dev": [
+      "black>=23.0.0",
+      "ruff>=0.1.0",
+      "mypy>=1.0.0"
+    ]
+  },
+  "configuration": {
+    "api_settings": {
+      "openai_api_key": "env:OPENAI_API_KEY",
+      "model": "gpt-5",
+      "max_tokens": 4000,
+      "temperature": 0.1
+    },
+    "execution_limits": {
+      "max_execution_time": 300,
+      "max_memory_mb": 512,
+      "network_access": true,
+      "max_file_size_mb": 20
+    },
+    "rate_limiting": {
+      "requests_per_minute": 60,
+      "retry_attempts": 3,
+      "backoff_factor": 2
+    },
+    "snapshots": {
+      "auto_snapshot": true,
+      "max_snapshots": 20,
+      "retention_days": 90
+    }
+  },
+  "execution_workflow": {
+    "setup": [
+      "Provision RDS, ElastiCache, S3 buckets",
+      "Create VPC, ECS clusters, ALB",
+      "Initialize databases and run Alembic migrations",
+      "Configure GitHub Actions OIDC and secrets"
+    ],
+    "main_execution": [
+      "Content flow: brief -> generation -> translation -> review -> schedule -> publish",
+      "Email flow: create campaign -> segment -> suppression checks -> send -> ingest webhooks",
+      "Social flow: draft -> approve -> schedule -> post -> fetch engagement",
+      "Prospect flow: seed queries -> crawl within robots -> snapshot -> extract -> score -> review",
+      "Snapshot/rollback: create immutable S3 snapshot -> restore via CLI if needed"
+    ],
+    "error_handling": [
+      "Exponential backoff with jitter on 429/5xx",
+      "Circuit breaker with error budget thresholds",
+      "Fallback to cached content on failures",
+      "Prometheus metrics and Sentry alerts"
+    ]
+  },
+  "quality_assurance": {
+    "testing_strategy": {
+      "unit_tests": [
+        "Service endpoints and business logic",
+        "Worker task behaviors",
+        "Rate limiter and robots parser",
+        "Data model validations"
+      ],
+      "integration_tests": [
+        "End-to-end content pipeline",
+        "Email send + webhook ingestion",
+        "Social posting flows",
+        "Prospect discovery and scoring",
+        "Snapshot/rollback flows"
+      ],
+      "acceptance_tests": [
+        "Compliance: GDPR/CCPA checks",
+        "Human-in-the-loop approval gates",
+        "Performance thresholds and SLAs",
+        "Robots.txt respect and rate limits"
+      ]
+    },
+    "code_quality": {
+      "type_checking": "mypy with strict settings",
+      "formatting": "black with line-length 100",
+      "linting": "ruff with all rules",
+      "coverage_target": "80% minimum"
+    },
+    "monitoring": {
+      "structured_logging": "JSON logs with trace IDs",
+      "performance_metrics": "Execution times, queue depth, success rates",
+      "error_tracking": "Sentry with enriched context",
+      "audit_trail": "Immutable S3 snapshots + DB audit tables"
+    }
+  },
+  "agent_specifications": {
+    "requirements_analysis_agent": {
+      "input": [
+        "seed_queries",
+        "org_webpages",
+        "existing_contacts"
+      ],
+      "output": "prospect_org+features+evidence",
+      "tools": [
+        "google_cse_client",
+        "robots_validator",
+        "snapshot_s3_writer",
+        "nlp_feature_extractor"
+      ],
+      "validation": [
+        "robots_compliance",
+        "provenance_integrity",
+        "score_thresholds"
+      ]
+    },
+    "coding_agent": {
+      "input": "content_brief+templates+glossary",
+      "output": [
+        "content_drafts",
+        "translations",
+        "scheduled_jobs"
+      ],
+      "tools": [
+        "openai_responses",
+        "google_translate",
+        "moderation_checker",
+        "template_renderer"
+      ],
+      "validation": [
+        "hil_review_required",
+        "policy_compliance",
+        "template_placeholders_resolved"
+      ]
+    },
+    "testing_agent": {
+      "input": [
+        "esp_events",
+        "service_endpoints",
+        "rate_limit_configs"
+      ],
+      "output": [
+        "webhook_event_rows",
+        "retry_results",
+        "resilience_report"
+      ],
+      "tools": [
+        "webhook_receiver",
+        "rate_limit_tester",
+        "retry_backoff_tester"
+      ],
+      "validation": [
+        "deliverability_fields_present",
+        "backoff_behaviors",
+        "throughput_targets"
+      ]
+    },
+    "documentation_agent": {
+      "input": [
+        "openapi_specs",
+        "s3_snapshot_records",
+        "audit_logs"
+      ],
+      "output": [
+        "compliance_report",
+        "runbooks",
+        "openapi_bundle"
+      ],
+      "tools": [
+        "spec_generator",
+        "manifest_creator",
+        "snapshot_indexer"
+      ],
+      "validation": [
+        "policy_coverage",
+        "manifest_accuracy",
+        "snapshot_integrity"
+      ]
+    }
+  },
+  "deliverables": {
+    "final_package": {
+      "required_files": [
+        "openapi.yaml (API specs)",
+        "docker-compose.yml (local dev)",
+        "infra/ (Terraform/CDK configs)",
+        "services/ (source for all services)",
+        "tests/ (unit+integration)",
+        "docs/ (architecture, ADRs, compliance)",
+        "runbooks/ (operations)",
+        "snapshots/ (manifests)"
+      ],
+      "metadata_includes": [
+        "model_used",
+        "sdk_versions",
+        "python_version",
+        "execution_timestamps",
+        "token_usage_estimate",
+        "test_results_summary"
+      ],
+      "packaging_format": "ZIP with run_id naming"
+    }
+  }
+}

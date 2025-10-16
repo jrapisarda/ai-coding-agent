@@ -1,0 +1,38 @@
+[
+  {
+    "ok": true,
+    "query": "OpenAI Agents SDK latest documentation",
+    "results": [],
+    "error": null
+  },
+  {
+    "ok": true,
+    "query": "OpenAI function_tool best practices",
+    "results": [],
+    "error": null
+  },
+  {
+    "ok": true,
+    "query": "kimi-k2-0905-preview API updates",
+    "results": [],
+    "error": null
+  },
+  {
+    "ok": true,
+    "query": "bioinformatics best practices 2024",
+    "results": [],
+    "error": null
+  },
+  {
+    "ok": true,
+    "query": "1.0.0 best practices 2024",
+    "results": [],
+    "error": null
+  },
+  {
+    "ok": true,
+    "query": "Local best practices 2024",
+    "results": [],
+    "error": null
+  }
+]

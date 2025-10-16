@@ -1,0 +1,7 @@
+study_id,patient_id,visit_date,age,gender,treatment_group
+S001,P001,2023-01-15,45,M,Control
+S001,P002,2023-01-16,38,F,Treatment
+S002,P003,2023-02-01,52,M,Control
+S002,P004,2023-02-02,41,F,Treatment
+S003,P005,2023-03-10,39,M,Control
+S003,P006,2023-03-11,44,F,Treatment

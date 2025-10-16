@@ -1,0 +1,10 @@
+{
+  "sandbox_ok": true,
+  "sandbox_stdout": "3 passed in 0.35s",
+  "sandbox_stderr": "",
+  "compiled_ok": true,
+  "compile_errors": [],
+  "pytest_ok": true,
+  "pytest_stdout": "3 passed in 0.35s",
+  "pytest_stderr": ""
+}

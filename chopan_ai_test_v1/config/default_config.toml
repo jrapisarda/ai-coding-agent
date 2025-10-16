@@ -1,0 +1,42 @@
+[database]
+url = "postgresql+psycopg://user:password@localhost:5432/chopan_ai"
+echo = false
+pool_size = 10
+max_overflow = 20
+
+[redis]
+url = "redis://localhost:6379/0"
+decode_responses = true
+
+[openai]
+api_key = "env:OPENAI_API_KEY"
+model = "gpt-4"
+max_tokens = 4000
+temperature = 0.1
+
+[aws]
+region = "us-east-1"
+s3_bucket = "chopan-ai-snapshots"
+access_key_id = "env:AWS_ACCESS_KEY_ID"
+secret_access_key = "env:AWS_SECRET_ACCESS_KEY"
+
+[rate_limiting]
+requests_per_minute = 60
+retry_attempts = 3
+backoff_factor = 2.0
+
+[snapshots]
+auto_snapshot = true
+max_snapshots = 20
+retention_days = 90
+
+[execution]
+max_execution_time = 300
+max_memory_mb = 512
+network_access = true
+max_file_size_mb = 20
+
+[logging]
+level = "INFO"
+format = "json"
+trace_id_header = "X-Trace-ID"
